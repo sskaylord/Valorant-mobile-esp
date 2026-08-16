@@ -110,6 +110,19 @@ public class MainActivity extends Activity {
         launchBtn.setOnClickListener(v -> launchGame());
         layout.addView(launchBtn);
         
+                Button stopBtn = new Button(this);
+        stopBtn.setText("DURDUR");
+        stopBtn.setTextColor(Color.WHITE);
+        stopBtn.setBackgroundColor(Color.parseColor("#444444"));
+        stopBtn.setTextSize(16);
+        stopBtn.setPadding(20, 15, 20, 15);
+        stopBtn.setOnClickListener(v -> {
+            stopService(new Intent(this, OverlayService.class));
+            statusText.setText("DURDURULDU");
+            statusText.setTextColor(Color.RED);
+        });
+        layout.addView(stopBtn);
+        
         statusText = new TextView(this);
         statusText.setText("HAZIR");
         statusText.setTextColor(Color.GREEN);
