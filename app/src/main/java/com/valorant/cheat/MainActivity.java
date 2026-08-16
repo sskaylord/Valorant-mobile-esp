@@ -130,8 +130,25 @@ public class MainActivity extends Activity {
             try {
                 Thread.sleep(1000);
                 
-                Intent intent = getPackageManager().getLaunchIntentForPackage(
-                    "com.riotgames.valorant.mobile");
+                Intent intent = null;
+                String[] possiblePackages = {
+                    "com.riotgames.valorant.mobile",
+                    "com.tencent.valorant",
+                    "com.tencent.wuyi",
+                    "com.tencent.yuan",
+                    "com.riotgames.valorant.cn",
+                    "com.tencent.tmgp.valorant",
+                    "com.tencent.wyqy"
+                };
+                for (String pkg : possiblePackages) {
+                    try {
+                        Intent testIntent = getPackageManager().getLaunchIntentForPackage(pkg);
+                        if (testIntent != null) {
+                            intent = testIntent;
+                            break;
+                        }
+                    } catch (Exception e) {}
+                }
                     
                 if (intent != null) {
                     startActivity(intent);
@@ -164,4 +181,4 @@ public class MainActivity extends Activity {
             }
         }).start();
     }
-                          }
+            }
