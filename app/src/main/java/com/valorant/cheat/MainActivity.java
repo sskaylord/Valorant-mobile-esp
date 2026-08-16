@@ -132,6 +132,7 @@ public class MainActivity extends Activity {
                 
                 Intent intent = null;
                 String[] possiblePackages = {
+                    "com.tencent.tmgp.codev",
                     "com.riotgames.valorant.mobile",
                     "com.tencent.valorant",
                     "com.tencent.wuyi",
