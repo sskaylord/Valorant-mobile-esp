@@ -1,0 +1,4 @@
+<application
+    android:allowBackup="true"
+    android:label="Valorant ESP"
+    android:icon="@drawable/ic_launcher">
