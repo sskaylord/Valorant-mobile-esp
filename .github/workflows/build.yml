@@ -17,13 +17,14 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
       
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-      
-      - name: Build with Gradle
+      - name: Download Gradle 8.4
         run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          wget https://services.gradle.org/distributions/gradle-8.4-bin.zip
+          unzip -o gradle-8.4-bin.zip
+      
+      - name: Build with Gradle 8.4
+        run: |
+          ./gradle-8.4/bin/gradle assembleDebug
       
       - name: Upload APK
         uses: actions/upload-artifact@v4
