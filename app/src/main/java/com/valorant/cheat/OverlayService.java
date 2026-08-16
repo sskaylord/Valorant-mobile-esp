@@ -29,7 +29,8 @@ public class OverlayService extends Service {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
             WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE |
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         );
         
@@ -62,7 +63,7 @@ public class OverlayService extends Service {
             new Thread(() -> {
                 while (true) {
                     try {
-                        Thread.sleep(16);
+                        Thread.sleep(50);
                         postInvalidate();
                     } catch (InterruptedException e) {
                         break;
@@ -77,13 +78,16 @@ public class OverlayService extends Service {
             
             if (!esp) return;
             
-            for (int i = 0; i < players.length; i++) {
+            paint.reset();
+            paint.setAntiAlias(true);
+            
+            for (int i = 0; i < 5; i++) {
                 float x = players[i][0];
                 float y = players[i][1];
                 boolean visible = players[i][2] == 1;
                 
-                float bw = 120;
-                float bh = 240;
+                float bw = 100;
+                float bh = 200;
                 float left = x - bw/2;
                 float top = y - bh;
                 float right = x + bw/2;
@@ -117,14 +121,14 @@ public class OverlayService extends Service {
                     paint.setStrokeWidth(1);
                     paint.setAlpha(200);
                     
-                    canvas.drawCircle(x, top + 30, 15, paint);
-                    canvas.drawLine(x, top + 45, x, top + 60, paint);
-                    canvas.drawLine(x, top + 60, x, top + 100, paint);
-                    canvas.drawLine(x, top + 100, x, top + 150, paint);
-                    canvas.drawLine(x, top + 100, x - 40, top + 130, paint);
-                    canvas.drawLine(x, top + 100, x + 40, top + 130, paint);
-                    canvas.drawLine(x, top + 150, x - 30, bottom - 40, paint);
-                    canvas.drawLine(x, top + 150, x + 30, bottom - 40, paint);
+                    canvas.drawCircle(x, top + 25, 12, paint);
+                    canvas.drawLine(x, top + 37, x, top + 50, paint);
+                    canvas.drawLine(x, top + 50, x, top + 85, paint);
+                    canvas.drawLine(x, top + 85, x, top + 130, paint);
+                    canvas.drawLine(x, top + 85, x - 35, top + 110, paint);
+                    canvas.drawLine(x, top + 85, x + 35, top + 110, paint);
+                    canvas.drawLine(x, top + 130, x - 25, bottom - 30, paint);
+                    canvas.drawLine(x, top + 130, x + 25, bottom - 30, paint);
                     
                     paint.setAlpha(255);
                 }
@@ -144,4 +148,4 @@ public class OverlayService extends Service {
         }
         super.onDestroy();
     }
-          }
+            }
