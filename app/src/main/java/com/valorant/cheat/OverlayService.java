@@ -14,6 +14,7 @@ public class OverlayService extends Service {
     private boolean memoryAttached = false;
     private int gamePid = -1;
     private volatile boolean running = true;
+    private String debugText = "Baslatiliyor...";
     
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -48,12 +49,33 @@ public class OverlayService extends Service {
     private void startMemoryReader() {
         new Thread(() -> {
             try {
+                debugText = "Process araniyor...";
+                Thread.sleep(5000);
+                
                 gamePid = MemoryReader.findGameProcess("com.tencent.tmgp.codev");
+                debugText = "PID: " + gamePid;
+                
                 if (gamePid > 0) {
                     MemoryReader.attachToProcess(gamePid);
                     memoryAttached = true;
+                    debugText = "Baglandi PID: " + gamePid;
+                    
+                    Thread.sleep(2000);
+                    
+                    long gworld = MemoryReader.findGWorld();
+                    debugText = "GWorld: " + gworld;
+                    
+                    if (gworld != 0) {
+                        long actorArray = MemoryReader.getActorArray(gworld);
+                        debugText = "ActorArray: " + actorArray;
+                        
+                        int actorCount = MemoryReader.getActorCount(gworld);
+                        debugText = "ActorCount: " + actorCount;
+                    }
                 }
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                debugText = "Hata: " + e.getMessage();
+            }
         }).start();
     }
     
@@ -86,7 +108,7 @@ public class OverlayService extends Service {
                         if (memoryAttached && gamePid > 0) {
                             readRealPlayerData();
                         }
-                        Thread.sleep(50);
+                        Thread.sleep(100);
                         postInvalidate();
                     } catch (InterruptedException e) {
                         break;
@@ -99,14 +121,24 @@ public class OverlayService extends Service {
             try {
                 long gworld = MemoryReader.findGWorld();
                 if (gworld != 0) {
+                    debugText = "GWorld OK: " + gworld;
                     long actorArray = MemoryReader.getActorArray(gworld);
                     int actorCount = MemoryReader.getActorCount(gworld);
+                    
                     if (actorArray != 0 && actorCount > 0 && actorCount < 100) {
                         realPlayers = MemoryReader.getPlayerPositions(actorArray, actorCount);
                         useRealData = true;
+                        debugText = "Oyuncu: " + realPlayers.length;
+                    } else {
+                        debugText = "Actor yok: " + actorArray + " count:" + actorCount;
+                        useRealData = false;
                     }
+                } else {
+                    debugText = "GWorld YOK!";
+                    useRealData = false;
                 }
             } catch (Exception e) {
+                debugText = "Hata: " + e.getMessage();
                 useRealData = false;
             }
         }
@@ -119,6 +151,12 @@ public class OverlayService extends Service {
             
             paint.reset();
             paint.setAntiAlias(true);
+            
+            // DEBUG YAZISI
+            paint.setColor(Color.YELLOW);
+            paint.setTextSize(40);
+            paint.setStyle(Paint.Style.FILL);
+            canvas.drawText(debugText, 50, 150, paint);
             
             if (useRealData && realPlayers != null) {
                 drawRealPlayers(canvas);
@@ -260,4 +298,4 @@ public class OverlayService extends Service {
         stopSelf();
         super.onDestroy();
     }
-                    }
+                                    }
