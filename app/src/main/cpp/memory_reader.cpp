@@ -6,6 +6,7 @@
 #include <string.h>
 #include <vector>
 #include <string>
+#include <math.h>
 
 struct FVector {
     float X, Y, Z;
@@ -52,13 +53,55 @@ Java_com_valorant_cheat_MemoryReader_findGameProcess(
     JNIEnv* env, jobject thiz, jstring packageName) {
     const char* pkg = env->GetStringUTFChars(packageName, nullptr);
     char path[256];
-    char cmdline[256];
-    for (int pid = 1; pid < 20000; pid++) {
+    char cmdline[512];
+    char comm[256];
+    
+    for (int pid = 1; pid < 30000; pid++) {
         sprintf(path, "/proc/%d/cmdline", pid);
         FILE* f = fopen(path, "r");
         if (f) {
             if (fgets(cmdline, sizeof(cmdline), f)) {
-                if (strstr(cmdline, pkg) || strstr(cmdline, "codev")) {
+                if (strstr(cmdline, pkg) || 
+                    strstr(cmdline, "codev") || 
+                    strstr(cmdline, "clone") || 
+                    strstr(cmdline, "virtual") ||
+                    strstr(cmdline, "tencent") ||
+                    strstr(cmdline, "valorant") ||
+                    strstr(cmdline, "wuyi")) {
+                    fclose(f);
+                    env->ReleaseStringUTFChars(packageName, pkg);
+                    return pid;
+                }
+            }
+            fclose(f);
+        }
+        
+        sprintf(path, "/proc/%d/comm", pid);
+        f = fopen(path, "r");
+        if (f) {
+            if (fgets(comm, sizeof(comm), f)) {
+                if (strstr(comm, "codev") || 
+                    strstr(comm, "clone") || 
+                    strstr(comm, "tencent") ||
+                    strstr(comm, "valorant") ||
+                    strstr(comm, "wuyi")) {
+                    fclose(f);
+                    env->ReleaseStringUTFChars(packageName, pkg);
+                    return pid;
+                }
+            }
+            fclose(f);
+        }
+        
+        sprintf(path, "/proc/%d/maps", pid);
+        f = fopen(path, "r");
+        if (f) {
+            char mapLine[512];
+            while (fgets(mapLine, sizeof(mapLine), f)) {
+                if (strstr(mapLine, "libUE4.so") || 
+                    strstr(mapLine, "libil2cpp.so") ||
+                    strstr(mapLine, "codev") ||
+                    strstr(mapLine, "valorant")) {
                     fclose(f);
                     env->ReleaseStringUTFChars(packageName, pkg);
                     return pid;
@@ -67,6 +110,7 @@ Java_com_valorant_cheat_MemoryReader_findGameProcess(
             fclose(f);
         }
     }
+    
     env->ReleaseStringUTFChars(packageName, pkg);
     return -1;
 }
@@ -202,7 +246,6 @@ Java_com_valorant_cheat_MemoryReader_getPlayerPositions(
     return positions;
 }
 
-// World to Screen dönüşümü
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_valorant_cheat_MemoryReader_worldToScreen(
     JNIEnv* env, jobject thiz,
