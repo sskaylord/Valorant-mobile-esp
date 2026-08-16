@@ -16,3 +16,6 @@ public class MemoryReader {
     public static native int getActorCount(long gworld);
     public static native Vector3[] getPlayerPositions(long actorArray, int actorCount);
       }
+
+
+public static native boolean worldToScreen(float worldX, float worldY, float worldZ, ScreenPoint screenPoint);
