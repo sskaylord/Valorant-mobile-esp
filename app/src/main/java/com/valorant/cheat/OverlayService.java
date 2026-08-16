@@ -13,6 +13,7 @@ public class OverlayService extends Service {
     private boolean esp, box, skeleton, lines, health;
     private boolean memoryAttached = false;
     private int gamePid = -1;
+    private volatile boolean running = true;
     
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -38,10 +39,7 @@ public class OverlayService extends Service {
         
         windowManager.addView(espView, params);
         
-        // Anti-cheat korumasını başlat
         AntiDetect.startFullProtection();
-        
-        // Memory reader'ı başlat
         startMemoryReader();
         
         return START_STICKY;
@@ -50,16 +48,12 @@ public class OverlayService extends Service {
     private void startMemoryReader() {
         new Thread(() -> {
             try {
-                // Oyun process'ini bul
                 gamePid = MemoryReader.findGameProcess("com.tencent.tmgp.codev");
-                
                 if (gamePid > 0) {
                     MemoryReader.attachToProcess(gamePid);
                     memoryAttached = true;
                 }
-            } catch (Exception e) {
-                // Memory erişimi yoksa rastgele ESP devam eder
-            }
+            } catch (Exception e) {}
         }).start();
     }
     
@@ -87,13 +81,11 @@ public class OverlayService extends Service {
         
         private void startLoop() {
             new Thread(() -> {
-                while (true) {
+                while (running) {
                     try {
-                        // Gerçek memory verilerini oku
                         if (memoryAttached && gamePid > 0) {
                             readRealPlayerData();
                         }
-                        
                         Thread.sleep(50);
                         postInvalidate();
                     } catch (InterruptedException e) {
@@ -109,7 +101,6 @@ public class OverlayService extends Service {
                 if (gworld != 0) {
                     long actorArray = MemoryReader.getActorArray(gworld);
                     int actorCount = MemoryReader.getActorCount(gworld);
-                    
                     if (actorArray != 0 && actorCount > 0 && actorCount < 100) {
                         realPlayers = MemoryReader.getPlayerPositions(actorArray, actorCount);
                         useRealData = true;
@@ -124,7 +115,7 @@ public class OverlayService extends Service {
         protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
             
-            if (!esp) return;
+            if (!esp || !running) return;
             
             paint.reset();
             paint.setAntiAlias(true);
@@ -137,13 +128,10 @@ public class OverlayService extends Service {
         }
         
         private void drawRealPlayers(Canvas canvas) {
-            // Gerçek oyuncu verilerini çiz
-            // World-to-screen dönüşümü yapılacak
             for (int i = 0; i < realPlayers.length; i++) {
                 Vector3 pos = realPlayers[i];
                 if (pos == null) continue;
                 
-                // Basit ekran projeksiyonu (şimdilik)
                 float screenX = (pos.X % canvas.getWidth());
                 float screenY = (pos.Y % canvas.getHeight());
                 
@@ -200,7 +188,7 @@ public class OverlayService extends Service {
         }
         
         private void drawTestPlayers(Canvas canvas) {
-            for (int i = 0; i < testPlayers.length; i++) {
+            for (int i = 0; i < 5; i++) {
                 float x = testPlayers[i][0];
                 float y = testPlayers[i][1];
                 boolean visible = testPlayers[i][2] == 1;
@@ -262,11 +250,14 @@ public class OverlayService extends Service {
     
     @Override
     public void onDestroy() {
+        running = false;
         if (espView != null) {
             windowManager.removeView(espView);
+            espView = null;
         }
         AntiDetect.stopProtection();
         MemoryReader.detachProcess();
+        stopSelf();
         super.onDestroy();
     }
-            }
+                    }
