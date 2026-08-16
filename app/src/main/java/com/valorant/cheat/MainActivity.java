@@ -110,7 +110,7 @@ public class MainActivity extends Activity {
         launchBtn.setOnClickListener(v -> launchGame());
         layout.addView(launchBtn);
         
-                Button stopBtn = new Button(this);
+        Button stopBtn = new Button(this);
         stopBtn.setText("DURDUR");
         stopBtn.setTextColor(Color.WHITE);
         stopBtn.setBackgroundColor(Color.parseColor("#444444"));
@@ -146,6 +146,9 @@ public class MainActivity extends Activity {
                 Intent intent = null;
                 String[] possiblePackages = {
                     "com.tencent.tmgp.codev",
+                    "com.cloneapp.tencent.tmgp.codev",
+                    "com.tencent.tmgp.codev.clone",
+                    "com.clone.tencent.tmgp.codev",
                     "com.riotgames.valorant.mobile",
                     "com.tencent.valorant",
                     "com.tencent.wuyi",
@@ -195,4 +198,4 @@ public class MainActivity extends Activity {
             }
         }).start();
     }
-            }
+                }
