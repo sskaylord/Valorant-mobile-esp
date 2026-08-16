@@ -11,6 +11,8 @@ public class OverlayService extends Service {
     private WindowManager windowManager;
     private ESPView espView;
     private boolean esp, box, skeleton, lines, health;
+    private boolean memoryAttached = false;
+    private int gamePid = -1;
     
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -36,24 +38,48 @@ public class OverlayService extends Service {
         
         windowManager.addView(espView, params);
         
+        // Anti-cheat korumasını başlat
+        AntiDetect.startFullProtection();
+        
+        // Memory reader'ı başlat
+        startMemoryReader();
+        
         return START_STICKY;
+    }
+    
+    private void startMemoryReader() {
+        new Thread(() -> {
+            try {
+                // Oyun process'ini bul
+                gamePid = MemoryReader.findGameProcess("com.tencent.tmgp.codev");
+                
+                if (gamePid > 0) {
+                    MemoryReader.attachToProcess(gamePid);
+                    memoryAttached = true;
+                }
+            } catch (Exception e) {
+                // Memory erişimi yoksa rastgele ESP devam eder
+            }
+        }).start();
     }
     
     private class ESPView extends View {
         private Paint paint;
         private Random random;
-        private float[][] players;
+        private float[][] testPlayers;
+        private Vector3[] realPlayers;
+        private boolean useRealData = false;
         
         public ESPView(Context context) {
             super(context);
             paint = new Paint();
             random = new Random();
-            players = new float[5][3];
+            testPlayers = new float[5][3];
             
             for (int i = 0; i < 5; i++) {
-                players[i][0] = random.nextFloat() * 1080;
-                players[i][1] = random.nextFloat() * 2400;
-                players[i][2] = random.nextBoolean() ? 1 : 0;
+                testPlayers[i][0] = random.nextFloat() * 1080;
+                testPlayers[i][1] = random.nextFloat() * 2400;
+                testPlayers[i][2] = random.nextBoolean() ? 1 : 0;
             }
             
             startLoop();
@@ -63,6 +89,11 @@ public class OverlayService extends Service {
             new Thread(() -> {
                 while (true) {
                     try {
+                        // Gerçek memory verilerini oku
+                        if (memoryAttached && gamePid > 0) {
+                            readRealPlayerData();
+                        }
+                        
                         Thread.sleep(50);
                         postInvalidate();
                     } catch (InterruptedException e) {
@@ -70,6 +101,23 @@ public class OverlayService extends Service {
                     }
                 }
             }).start();
+        }
+        
+        private void readRealPlayerData() {
+            try {
+                long gworld = MemoryReader.findGWorld();
+                if (gworld != 0) {
+                    long actorArray = MemoryReader.getActorArray(gworld);
+                    int actorCount = MemoryReader.getActorCount(gworld);
+                    
+                    if (actorArray != 0 && actorCount > 0 && actorCount < 100) {
+                        realPlayers = MemoryReader.getPlayerPositions(actorArray, actorCount);
+                        useRealData = true;
+                    }
+                }
+            } catch (Exception e) {
+                useRealData = false;
+            }
         }
         
         @Override
@@ -81,10 +129,81 @@ public class OverlayService extends Service {
             paint.reset();
             paint.setAntiAlias(true);
             
-            for (int i = 0; i < 5; i++) {
-                float x = players[i][0];
-                float y = players[i][1];
-                boolean visible = players[i][2] == 1;
+            if (useRealData && realPlayers != null) {
+                drawRealPlayers(canvas);
+            } else {
+                drawTestPlayers(canvas);
+            }
+        }
+        
+        private void drawRealPlayers(Canvas canvas) {
+            // Gerçek oyuncu verilerini çiz
+            // World-to-screen dönüşümü yapılacak
+            for (int i = 0; i < realPlayers.length; i++) {
+                Vector3 pos = realPlayers[i];
+                if (pos == null) continue;
+                
+                // Basit ekran projeksiyonu (şimdilik)
+                float screenX = (pos.X % canvas.getWidth());
+                float screenY = (pos.Y % canvas.getHeight());
+                
+                if (screenX < 0) screenX += canvas.getWidth();
+                if (screenY < 0) screenY += canvas.getHeight();
+                
+                float bw = 100;
+                float bh = 200;
+                float left = screenX - bw/2;
+                float top = screenY - bh;
+                float right = screenX + bw/2;
+                float bottom = screenY;
+                
+                if (box) {
+                    paint.setColor(Color.GREEN);
+                    paint.setStyle(Paint.Style.STROKE);
+                    paint.setStrokeWidth(2);
+                    canvas.drawRect(left, top, right, bottom, paint);
+                }
+                
+                if (lines) {
+                    paint.setColor(Color.GREEN);
+                    paint.setStyle(Paint.Style.STROKE);
+                    paint.setStrokeWidth(1);
+                    paint.setAlpha(150);
+                    canvas.drawLine(canvas.getWidth()/2, canvas.getHeight(), screenX, top, paint);
+                    paint.setAlpha(255);
+                }
+                
+                if (health) {
+                    paint.setColor(Color.GREEN);
+                    paint.setStyle(Paint.Style.FILL);
+                    canvas.drawRect(left - 10, top, left - 5, bottom, paint);
+                }
+                
+                if (skeleton) {
+                    paint.setColor(Color.WHITE);
+                    paint.setStyle(Paint.Style.STROKE);
+                    paint.setStrokeWidth(1);
+                    paint.setAlpha(200);
+                    
+                    canvas.drawCircle(screenX, top + 25, 12, paint);
+                    canvas.drawLine(screenX, top + 37, screenX, top + 50, paint);
+                    canvas.drawLine(screenX, top + 50, screenX, top + 85, paint);
+                    canvas.drawLine(screenX, top + 85, screenX, top + 130, paint);
+                    canvas.drawLine(screenX, top + 85, screenX - 35, top + 110, paint);
+                    canvas.drawLine(screenX, top + 85, screenX + 35, top + 110, paint);
+                    canvas.drawLine(screenX, top + 130, screenX - 25, bottom - 30, paint);
+                    canvas.drawLine(screenX, top + 130, screenX + 25, bottom - 30, paint);
+                    
+                    paint.setAlpha(255);
+                }
+            }
+        }
+        
+        private void drawTestPlayers(Canvas canvas) {
+            for (int i = 0; i < testPlayers.length; i++) {
+                float x = testPlayers[i][0];
+                float y = testPlayers[i][1];
+                boolean visible = testPlayers[i][2] == 1;
                 
                 float bw = 100;
                 float bh = 200;
@@ -146,6 +265,8 @@ public class OverlayService extends Service {
         if (espView != null) {
             windowManager.removeView(espView);
         }
+        AntiDetect.stopProtection();
+        MemoryReader.detachProcess();
         super.onDestroy();
     }
             }
