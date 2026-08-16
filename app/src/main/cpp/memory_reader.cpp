@@ -201,3 +201,126 @@ Java_com_valorant_cheat_MemoryReader_getPlayerPositions(
     }
     return positions;
 }
+
+// World to Screen dönüşümü
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_valorant_cheat_MemoryReader_worldToScreen(
+    JNIEnv* env, jobject thiz,
+    jfloat worldX, jfloat worldY, jfloat worldZ,
+    jobject screenPoint) {
+    
+    if (game_pid <= 0) return JNI_FALSE;
+    
+    char maps_path[256];
+    sprintf(maps_path, "/proc/%d/maps", game_pid);
+    FILE* maps = fopen(maps_path, "r");
+    if (!maps) return JNI_FALSE;
+    
+    char line[512];
+    uintptr_t ue4_base = 0;
+    while (fgets(line, sizeof(line), maps)) {
+        if (strstr(line, "libUE4.so") || strstr(line, "libil2cpp.so")) {
+            sscanf(line, "%lx", &ue4_base);
+            break;
+        }
+    }
+    fclose(maps);
+    
+    if (!ue4_base) return JNI_FALSE;
+    
+    uintptr_t gworld_ptr = ue4_base + 0x8A00000;
+    long gworld = 0;
+    struct iovec local_iov;
+    struct iovec remote_iov;
+    
+    local_iov.iov_base = &gworld;
+    local_iov.iov_len = sizeof(gworld);
+    remote_iov.iov_base = (void*)gworld_ptr;
+    remote_iov.iov_len = sizeof(gworld);
+    syscall(SYS_process_vm_readv, game_pid,
+           &local_iov, 1, &remote_iov, 1, 0);
+    
+    if (!gworld) return JNI_FALSE;
+    
+    long player_controller = 0;
+    local_iov.iov_base = &player_controller;
+    local_iov.iov_len = sizeof(player_controller);
+    remote_iov.iov_base = (void*)(gworld + 0x38);
+    remote_iov.iov_len = sizeof(player_controller);
+    syscall(SYS_process_vm_readv, game_pid,
+           &local_iov, 1, &remote_iov, 1, 0);
+    
+    if (!player_controller) return JNI_FALSE;
+    
+    long camera_manager = 0;
+    local_iov.iov_base = &camera_manager;
+    local_iov.iov_len = sizeof(camera_manager);
+    remote_iov.iov_base = (void*)(player_controller + 0x338);
+    remote_iov.iov_len = sizeof(camera_manager);
+    syscall(SYS_process_vm_readv, game_pid,
+           &local_iov, 1, &remote_iov, 1, 0);
+    
+    if (!camera_manager) return JNI_FALSE;
+    
+    FVector camera_location;
+    local_iov.iov_base = &camera_location;
+    local_iov.iov_len = sizeof(camera_location);
+    remote_iov.iov_base = (void*)(camera_manager + 0x1A60);
+    remote_iov.iov_len = sizeof(camera_location);
+    syscall(SYS_process_vm_readv, game_pid,
+           &local_iov, 1, &remote_iov, 1, 0);
+    
+    struct {
+        float Pitch, Yaw, Roll;
+    } camera_rotation;
+    local_iov.iov_base = &camera_rotation;
+    local_iov.iov_len = sizeof(camera_rotation);
+    remote_iov.iov_base = (void*)(camera_manager + 0x1A6C);
+    remote_iov.iov_len = sizeof(camera_rotation);
+    syscall(SYS_process_vm_readv, game_pid,
+           &local_iov, 1, &remote_iov, 1, 0);
+    
+    float fov = 90.0f;
+    local_iov.iov_base = &fov;
+    local_iov.iov_len = sizeof(fov);
+    remote_iov.iov_base = (void*)(camera_manager + 0x1A78);
+    remote_iov.iov_len = sizeof(fov);
+    syscall(SYS_process_vm_readv, game_pid,
+           &local_iov, 1, &remote_iov, 1, 0);
+    
+    float deltaX = worldX - camera_location.X;
+    float deltaY = worldY - camera_location.Y;
+    float deltaZ = worldZ - camera_location.Z;
+    
+    float yaw = camera_rotation.Yaw * (M_PI / 180.0f);
+    float pitch = camera_rotation.Pitch * (M_PI / 180.0f);
+    
+    float cos_yaw = cos(yaw);
+    float sin_yaw = sin(yaw);
+    float cos_pitch = cos(pitch);
+    float sin_pitch = sin(pitch);
+    
+    float rotatedX = deltaX * cos_yaw - deltaY * sin_yaw;
+    float rotatedY = deltaX * sin_yaw + deltaY * cos_yaw;
+    float rotatedZ = deltaZ * cos_pitch - rotatedY * sin_pitch;
+    rotatedY = deltaZ * sin_pitch + rotatedY * cos_pitch;
+    
+    if (rotatedY < 0.1f) return JNI_FALSE;
+    
+    float screenWidth = 1280.0f;
+    float screenHeight = 720.0f;
+    
+    float fov_scale = screenWidth / (2.0f * tan(fov * M_PI / 360.0f));
+    
+    float screenX = screenWidth / 2.0f + (rotatedX * fov_scale) / rotatedY;
+    float screenY = screenHeight / 2.0f - (rotatedZ * fov_scale) / rotatedY;
+    
+    jclass screenClass = env->GetObjectClass(screenPoint);
+    jfieldID xField = env->GetFieldID(screenClass, "x", "F");
+    jfieldID yField = env->GetFieldID(screenClass, "y", "F");
+    
+    env->SetFloatField(screenPoint, xField, screenX);
+    env->SetFloatField(screenPoint, yField, screenY);
+    
+    return JNI_TRUE;
+}
